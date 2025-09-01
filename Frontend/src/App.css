@@ -1,0 +1,31 @@
+@import url("https://fonts.googleapis.com/css2?family=Bitcount:wght@100..900&family=Jersey+10&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Nata+Sans:wght@100..900&family=Orbitron:wght@400..900&family=Pixelify+Sans:wght@400..700&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: "Nata Sans", sans-serif;
+  height: 100%;
+  overflow-x: hidden; /* prevent sideways scroll */
+}
+.btn {
+  font-family: "Nata Sans", sans-serif;
+  margin-top: 2rem;
+  background-color: rgb(34, 53, 46);
+  border-radius: 8px;
+  color: white;
+  height: 3rem;
+  width: 8rem;
+  border: 0px;
+  outline: 1px solid white;
+  cursor: pointer;
+  transition: transform 0.2s linear;
+  font-size: larger;
+}
+.btn:hover {
+  transform: scale(1.1);
+}

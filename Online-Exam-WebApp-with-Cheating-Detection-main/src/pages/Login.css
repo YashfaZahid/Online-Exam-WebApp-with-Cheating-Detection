@@ -1,0 +1,38 @@
+body,html{
+    align-items: center;
+    border: 0px;
+}
+.container{
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0%;
+    padding: 0%;
+    
+  }
+.box{
+    display: flex;
+    flex-direction: column;
+    width: 70rem;
+    height: 33rem;
+    border-radius: 10px;
+    justify-content: flex-start;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 10px;
+    margin: 10px;
+    margin-left: 0px;
+    background-color: hsla(0, 1%, 36%, 0.664);
+}
+.box h1{
+    font-size: 7em;
+    margin-top: 10px;
+}
+.box h2{
+    font-size: 40px;
+    margin-top: 40px;
+    margin-bottom: 10px;
+}
