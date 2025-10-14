@@ -20,7 +20,9 @@ function StudentLogin() {
         body: JSON.stringify({ username, password }),
       });
       const data = await respone.json();
+      
       if (data.success) {
+        localStorage.setItem("student_id", data.id);
         setError("");
         alert("Login successful!");
         navigate("/StudentPage");

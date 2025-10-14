@@ -4,23 +4,13 @@ from flask_cors import CORS
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# ------------------------
-# Flask Config
-# ------------------------
 app = Flask(__name__)
 CORS(app)
 
-# ------------------------
-# Supabase Setup
-# ------------------------
 load_dotenv()
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
-
-# ------------------------
-# Routes: Supabase Features
-# ------------------------
 @app.route('/add-question', methods=['POST'])
 def add_question():
     data = request.get_json()
@@ -95,6 +85,7 @@ def get_teachers():
 def add_answer():
     data = request.get_json()
     result = supabase.table('Answers').insert({
+        "test_id": data.get('test_id'),
         "question_id": data.get('question_id'),
         "student_id": data.get('student_id'),
         "answer_text": data.get('answer_text')
@@ -106,41 +97,20 @@ def get_answers():
     result = supabase.table('Answers').select('*').execute()
     return jsonify(result.data)
 
-# ------------------------
-# Cheating Logs Route (Corrected)
-# ------------------------
-@app.route("/cheating-log", methods=["POST"])
+
+@app.route('/cheating-log', methods=['POST'])
 def cheating_log():
     data = request.get_json()
-    student_id = data.get("student_id")
-    test_id = data.get("test_id")
-
-    # Validate student
-    student_check = supabase.table("Students").select("*").eq("id", student_id).execute()
-    if not student_check.data:
-        return jsonify({"success": False, "error": f"Student ID {student_id} does not exist"}), 400
-
-    # Validate test
-    test_check = supabase.table("Tests").select("*").eq("id", test_id).execute()
-    if not test_check.data:
-        return jsonify({"success": False, "error": f"Test ID {test_id} does not exist"}), 400
-
-    # Insert cheating log
-    event_details = data.get("event_details") or data.get("details")
     result = supabase.table("Cheating_Logs").insert({
-        "student_id": student_id,
-        "test_id": test_id,
-        "event_type": data.get("event_type"),
-        "event_details": event_details
+        "student_id": data.get('student_id'),
+        "test_id": data.get('test_id'),
+        "event_type": data.get('event_type'),
+        "event_details": data.get('event_details') or data.get('details')
     }).execute()
-
-    if result.error:
-        return jsonify({"success": False, "error": result.error}), 400
 
     return jsonify({"success": True, "data": result.data})
 
-# ------------------------
-# Run App
-# ------------------------
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

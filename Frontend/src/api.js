@@ -26,8 +26,8 @@ export async function addTest(title, teacher_id) {
     body: JSON.stringify({ title, teacher_id }),
   });
   const data = await response.json();
-  return data; 
-};
+  return data;
+}
 
 export async function addQuestion(test_id, question_text) {
   const res = await fetch(`${BASE_URL}/add-question`, {
@@ -37,11 +37,11 @@ export async function addQuestion(test_id, question_text) {
   });
   return await res.json();
 }
-export async function addAnswer(test_id, question_text) {
-  const res = await fetch(`${BASE_URL}/add-question`, {
+export async function addAnswer(test_id, question_id, student_id, answer_text) {
+  const res = await fetch(`${BASE_URL}/add-answer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ test_id, question_text }),
+    body: JSON.stringify({ test_id, question_id, student_id, answer_text }),
   });
   return await res.json();
 }
@@ -56,4 +56,18 @@ export async function getTests() {
   const res = await fetch(`${BASE_URL}/get-tests`);
   return await res.json();
 }
+export async function addCheatingLog(test_id, student_id, event_type, event_details) {
+  const res = await fetch(`${BASE_URL}/cheating-log`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ test_id, student_id, event_type, event_details }),
+  });
+  return await res.json();
+}
 
+
+// Error saving cheating log: TypeError: Failed to fetch
+//     at addCheatingLog (api.js:60:21)
+//     at saveCheatingLog (TestPage.jsx:34:25)
+//     at TestPage.jsx:153:13
+//     at @mediapipe_face_mesh.js?v=423d85f3:1861:17

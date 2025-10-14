@@ -14,7 +14,7 @@ function TeacherChoice() {
     <div className="container">
       <div className="box">
         <h1>Proctor Eye</h1>
-        <h2>LogIn or SignUp as a Teacher</h2>
+        <h2>Teacher Portal</h2>
         <Button txt={"SignUp"} myFucntion={goToTeacherSignup} />
         <Button txt={"Login"} myFucntion={goToTeacherLogin} />
       </div>
