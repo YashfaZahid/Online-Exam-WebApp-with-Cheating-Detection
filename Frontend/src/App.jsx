@@ -12,6 +12,8 @@ import TeacherSignup from "./pages/TeacherSignup.jsx";
 import StudentSignup from "./pages/StudentSignup.jsx";
 import StudentChoice from "./pages/StudentChoice.jsx";
 import TestPage from "./pages/TestPage.jsx";
+import CreateTest from "./pages/CreateTest.jsx";
+import ReportsDashboard from "./pages/TeacherDashboard.jsx";
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
         <Route path="/StudentSignup" element={<StudentSignup />} />
         <Route path="/StudentChoice" element={<StudentChoice />} />
         <Route path="/test/:testId" element={<TestPage />} />
+        <Route path="/create-test" element={<CreateTest />} />
+        <Route path="/reports" element={<ReportsDashboard />} />
       </Routes>
     </Router>
   );

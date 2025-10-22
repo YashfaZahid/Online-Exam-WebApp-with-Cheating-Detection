@@ -1,4 +1,6 @@
 // api.js
+import axios from "axios";
+
 const BASE_URL = "http://localhost:5000";
 
 export async function addTeacher(username, email, password) {
@@ -56,14 +58,55 @@ export async function getTests() {
   const res = await fetch(`${BASE_URL}/get-tests`);
   return await res.json();
 }
-export async function addCheatingLog(test_id, student_id, event_type, event_details) {
+export async function addCheatingLog(
+  test_id,
+  student_id,
+  event_type,
+  event_details,
+  event_duration,
+  gaze_direction,
+  mouse_movement
+) {
   const res = await fetch(`${BASE_URL}/cheating-log`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ test_id, student_id, event_type, event_details }),
+    body: JSON.stringify({
+      test_id,
+      student_id,
+      event_type,
+      event_details,
+      event_duration,
+      gaze_direction,
+      mouse_movement,
+    }),
   });
   return await res.json();
 }
+export async function submitTest(student_id, test_id) {
+  try {
+    const res = await fetch("http://localhost:5000/submit-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id, test_id }),
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("Error submitting test:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export const getReports = async (teacherId) => {
+  try {
+    const res = await axios.get(`${BASE_URL}/reports/${teacherId}`);
+    return res.data;
+  } catch (err) {
+    console.error("Error fetching reports:", err);
+    throw err;
+  }
+};
 
 
 // Error saving cheating log: TypeError: Failed to fetch

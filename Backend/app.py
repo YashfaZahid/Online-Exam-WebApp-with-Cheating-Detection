@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from supabase import create_client, Client
 from dotenv import load_dotenv
+import statistics
 
 app = Flask(__name__)
 CORS(app)
@@ -105,10 +106,81 @@ def cheating_log():
         "student_id": data.get('student_id'),
         "test_id": data.get('test_id'),
         "event_type": data.get('event_type'),
-        "event_details": data.get('event_details') or data.get('details')
+        "event_details": data.get('event_details') or data.get('details'),
+        "event-duration": data.get('event_duration'),
+        "gaze-direction": data.get('gaze_direction'),
+        "mouse-movement": data.get('mouse_movement')
     }).execute()
 
     return jsonify({"success": True, "data": result.data})
+
+
+@app.route('/submit-test', methods=['POST'])
+def submit_test():
+    data = request.json
+    student_id = data.get("student_id")
+    test_id = data.get("test_id")
+
+    # Fetch logs from cheating_logs table for that student/test
+    logs = (
+        supabase.table("Cheating_Logs")
+        .select("*")
+        .eq("student_id", student_id)
+        .eq("test_id", test_id)
+        .execute()
+        .data
+    )
+
+    if not logs:
+        return jsonify({"message": "No logs found"}), 404
+
+    total_events = len(logs)
+    focus_loss_count = sum(1 for log in logs if log["event_type"] == "window_focus")
+    durations = [log["event-duration"] for log in logs if log.get("event-duration")]
+    avg_focus_loss_duration = round(statistics.mean(durations), 2) if durations else 0
+
+    gaze_left_count = sum(1 for log in logs if str(log.get("gaze-direction")).lower() == "left")
+    gaze_right_count = sum(1 for log in logs if str(log.get("gaze-direction")).lower() == "right")
+    gaze_durations = [log["event-duration"] for log in logs if log.get("event_type") == "gaze_return_center"]
+    avg_gaze_duration = round(statistics.mean(gaze_durations), 2) if gaze_durations else 0
+
+    mouse_leave_count = sum(1 for log in logs if log.get("mouse-movement") == "left")
+    copy_count = sum(1 for log in logs if log.get("event_type") == "copy")
+    paste_count = sum(1 for log in logs if log.get("event_type") == "paste")
+
+    # Insert summarized record into ml_training_data
+    supabase.table("ml-training-data").insert({
+        "student_id": student_id,
+        "test_id": test_id,
+        "total_events": total_events,
+        "focues_loss_count": focus_loss_count,  # Keep same spelling as in DB
+        "avg_focus_loss_duration": avg_focus_loss_duration,
+        "gaze_left_count": gaze_left_count,
+        "gaze_right_count": gaze_right_count,
+        "avg_gaze_duration": avg_gaze_duration,
+        "mouse_leave_count": mouse_leave_count,
+        "copy_count": copy_count,
+        "paste_count": paste_count,
+        "cheating_label": None
+    }).execute()
+
+    return jsonify({"message": "ML summary saved successfully!"})
+
+
+@app.route("/reports/<teacher_id>", methods=["GET"])
+def get_reports(teacher_id):
+    try:
+        # Just get all records for this teacher_id
+        response = supabase.table("ml-training-data").select("*").eq("teacher_id", teacher_id).execute()
+
+        if not response.data:
+            return jsonify({"message": "No records found"}), 404
+
+        return jsonify(response.data)
+
+    except Exception as e:
+        print(e)
+        return jsonify({"error": str(e)}), 500
 
 
 

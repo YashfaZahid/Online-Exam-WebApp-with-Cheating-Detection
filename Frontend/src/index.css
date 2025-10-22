@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -7,18 +11,17 @@
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
 
-  
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-html{
+html {
   margin: 0px;
   border: 0px;
 }
 
-body{
+body {
   width: 100vw;
   height: 100vh;
   margin: 0px;

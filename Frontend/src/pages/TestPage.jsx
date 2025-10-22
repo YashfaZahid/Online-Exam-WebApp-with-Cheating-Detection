@@ -4,7 +4,7 @@ import { addAnswer, getQuestions } from "../api.js";
 import Button from "../components/button.jsx";
 import { FaceMesh } from "@mediapipe/face_mesh";
 import { Camera } from "@mediapipe/camera_utils";
-import { addCheatingLog } from "../api.js";
+import { addCheatingLog, submitTest } from "../api.js";
 
 function TestPage() {
   const blurStartRef = useRef(null);
@@ -15,6 +15,7 @@ function TestPage() {
   const [answers, setAnswers] = useState({});
   const [gaze, setGaze] = useState("Center");
 
+  // Fetch questions on mount
   useEffect(() => {
     (async () => {
       const data = await getQuestions(testId);
@@ -22,16 +23,30 @@ function TestPage() {
     })();
   }, [testId]);
 
-  const saveCheatingLog = async (eventType, details = "") => {
+  // --- Helper: Save logs ---
+  const saveCheatingLog = async (
+    eventType,
+    details = "",
+    event_duration = null,
+    gaze_direction = null,
+    mouse_movement = null
+  ) => {
     const student_id = localStorage.getItem("student_id");
-
     if (!student_id) {
       console.error("Student ID not found in localStorage!");
       return;
     }
 
     try {
-      const res = await addCheatingLog(testId, student_id, eventType, details);
+      const res = await addCheatingLog(
+        testId,
+        student_id,
+        eventType,
+        details,
+        event_duration,
+        gaze_direction,
+        mouse_movement
+      );
       if (!res.success) {
         console.error("Failed to log cheating event:", res);
       } else {
@@ -42,66 +57,68 @@ function TestPage() {
     }
   };
 
-useEffect(() => {
-  // --- Log focus status only once per session ---
-  if (!sessionStorage.getItem("focusLogged")) {
-    if (document.hasFocus()) {
-      saveCheatingLog("window_focus", "Focused on load");
-    } else {
-      saveCheatingLog("window_blur", "Not focused on load");
-    }
-    sessionStorage.setItem("focusLogged", "true");
-  }
-
-  // --- Handle blur (window loses focus) ---
-  const handleBlur = () => {
-    blurStartRef.current = Date.now();
-    console.log("Window blurred");
-    saveCheatingLog("window_blur", "Window lost focus");
-  };
-
-  // --- Handle focus (window regains focus) ---
-  const handleFocus = () => {
-    if (blurStartRef.current) {
-      const duration = Math.floor((Date.now() - blurStartRef.current) / 1000);
-      console.log(`Returned after ${duration} seconds`);
-      saveCheatingLog("window_focus", `Returned after ${duration} seconds`);
-      blurStartRef.current = null;
-    }
-  };
-
-  // --- Add event listeners ---
-  window.addEventListener("blur", handleBlur);
-  window.addEventListener("focus", handleFocus);
-
-  // --- Cleanup listeners on unmount ---
-  return () => {
-    window.removeEventListener("blur", handleBlur);
-    window.removeEventListener("focus", handleFocus);
-  };
-}, []);
-
-
+  // --- Focus tracking (blur removed, focus duration kept) ---
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.key === "c") {
-        saveCheatingLog("copy", "Ctrl+C used");
-      }
-      if (e.ctrlKey && e.key === "v") {
-        saveCheatingLog("paste", "Ctrl+V used");
+    const handleBlurStart = () => {
+      blurStartRef.current = Date.now();
+    };
+
+    const handleFocus = () => {
+      if (blurStartRef.current) {
+        const duration = Math.floor((Date.now() - blurStartRef.current) / 1000);
+        console.log(`Returned after ${duration} seconds`);
+        saveCheatingLog(
+          "window_focus",
+          `Returned after ${duration} seconds`,
+          duration
+        );
+        blurStartRef.current = null;
       }
     };
 
-    const handleCopy = () => {
-      saveCheatingLog("copy", "Right-click copy");
+    window.addEventListener("blur", handleBlurStart);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("blur", handleBlurStart);
+      window.removeEventListener("focus", handleFocus);
     };
-    const handlePaste = () => {
-      saveCheatingLog("paste", "Right-click paste");
+  }, []);
+
+  // --- Copy/Paste Detection ---
+  useEffect(() => {
+    let lastPasteTime = 0;
+
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === "c") saveCheatingLog("copy", "Ctrl+C used");
+      if (e.ctrlKey && e.key === "v") {
+        const now = Date.now();
+        // Prevent double logging if paste event also triggers soon after
+        if (now - lastPasteTime > 500) {
+          saveCheatingLog("paste", "Ctrl+V used");
+        }
+        lastPasteTime = now;
+      }
+    };
+
+    const handleCopy = (e) => {
+      // Trigger only if it's not from keyboard
+      if (!e.clipboardData) saveCheatingLog("copy", "Right-click copy");
+    };
+
+    const handlePaste = (e) => {
+      const now = Date.now();
+      // Skip if it’s already logged by Ctrl+V recently
+      if (now - lastPasteTime > 500) {
+        saveCheatingLog("paste", "Right-click paste");
+      }
+      lastPasteTime = now;
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("copy", handleCopy);
     window.addEventListener("paste", handlePaste);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("copy", handleCopy);
@@ -109,7 +126,38 @@ useEffect(() => {
     };
   }, []);
 
-  // ------------------- Initial Focus -------------------
+  // --- Mouse Movement Detection ---
+  useEffect(() => {
+    const handleMouseLeave = () => {
+      saveCheatingLog(
+        "mouse_leave",
+        "Mouse left the test window",
+        null,
+        null,
+        "left"
+      );
+    };
+
+    const handleMouseEnter = () => {
+      saveCheatingLog(
+        "mouse_enter",
+        "Mouse returned to the test window",
+        null,
+        null,
+        "entered"
+      );
+    };
+
+    window.addEventListener("mouseleave", handleMouseLeave);
+    window.addEventListener("mouseenter", handleMouseEnter);
+
+    return () => {
+      window.removeEventListener("mouseleave", handleMouseLeave);
+      window.removeEventListener("mouseenter", handleMouseEnter);
+    };
+  }, []);
+
+  // --- Initial Focus on Page Load ---
   useEffect(() => {
     window.focus();
     if (document.hasFocus()) {
@@ -120,154 +168,145 @@ useEffect(() => {
   }, []);
 
   // ------------------- MediaPipe FaceMesh (Head Tracking) -------------------
-useEffect(() => {
-  if (!videoRef.current || !canvasRef.current) return;
+  useEffect(() => {
+    if (!videoRef.current || !canvasRef.current) return;
 
-  const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvasRef.current.getContext("2d");
+    const lastGazeRef = { current: null };
+    const emaOffsetRef = { current: 0 };
+    const lastLogTimeRef = { current: 0 };
+    const gazeStartTimeRef = { current: null };
 
-  // refs that persist across frames without causing re-renders
-  const lastGazeRef = { current: null };           // stores "Left"/"Right"/"Center"/"Unknown"
-  const emaOffsetRef = { current: 0 };             // exponential moving average of offset
-  const lastLogTimeRef = { current: 0 };           // unix ms of last saved cheating log
+    const LEFT_THRESHOLD = 0.04;
+    const RIGHT_THRESHOLD = -0.04;
+    const NEUTRAL_ZONE = 0.03;
+    const EMA_ALPHA = 0.25;
+    const LOG_COOLDOWN_MS = 2000;
 
-  // tuning parameters (adjust if your camera angle/distance changes)
-  const LEFT_THRESHOLD = 0.06;     // offset > LEFT_THRESHOLD => "Left"
-  const RIGHT_THRESHOLD = -0.06;   // offset < RIGHT_THRESHOLD => "Right"
-  const NEUTRAL_ZONE = 0.03;       // abs(offset) <= NEUTRAL_ZONE => "Center"
-  const EMA_ALPHA = 0.25;          // smoothing factor (0 < alpha <= 1). smaller -> smoother
-  const LOG_COOLDOWN_MS = 2000;    // minimum ms between logs for the same direction
-
-  let camera = null;
-  const faceMesh = new FaceMesh({
-    locateFile: (file) =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-  });
-
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-  });
-
-  // helper to decide gaze based on smoothed offset and thresholds
-  function computeGazeFromOffset(smoothedOffset) {
-    if (smoothedOffset > LEFT_THRESHOLD) return "Left";
-    if (smoothedOffset < RIGHT_THRESHOLD) return "Right";
-    if (Math.abs(smoothedOffset) <= NEUTRAL_ZONE) return "Center";
-    return "Center";
-  }
-
-  // log to backend only when needed (and rate-limited)
-  function maybeLogGaze(newGaze) {
-    const now = Date.now();
-
-    // only log on change
-    if (newGaze === lastGazeRef.current) return;
-
-    // don't spam logs: ensure a small cooldown
-    if (now - lastLogTimeRef.current < LOG_COOLDOWN_MS) {
-      // allow transition to center without logging; if required to log center, remove this
-      lastGazeRef.current = newGaze;
-      setGaze(newGaze);
-      return;
-    }
-
-    // update last log time and last gaze
-    lastLogTimeRef.current = now;
-    lastGazeRef.current = newGaze;
-    setGaze(newGaze);
-
-    // Only record Left/Right as cheating events (not Center)
-    if (newGaze === "Left" || newGaze === "Right") {
-      // saveCheatingLog(testId, student_id, eventType, details)
-      const student_id = localStorage.getItem("student_id");
-      if (student_id) {
-        // send a compact detail so DB isn't spammed with huge strings
-        saveCheatingLog("gaze", `${newGaze}`);
-      }
-    }
-  }
-
-  faceMesh.onResults((results) => {
-    try {
-      ctx.save();
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      ctx.drawImage(
-        results.image,
-        0,
-        0,
-        canvasRef.current.width,
-        canvasRef.current.height
-      );
-
-      // If no face detected, treat as Center/Unknown depending on preference
-      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-        // If face lost, set to "Center" or "Unknown" — we choose Center to avoid false positives.
-        maybeLogGaze("Center");
-        ctx.restore();
-        return;
-      }
-
-      const landmarks = results.multiFaceLandmarks[0];
-      const leftEye = landmarks[33];
-      const rightEye = landmarks[263];
-      const noseTip = landmarks[1];
-
-      // compute normalized horizontal offset: how far eyes center is from nose center
-      const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-      const offset = eyeCenterX - noseTip.x; // can be negative or positive
-
-      // smooth offset with EMA to avoid flicker
-      const prev = emaOffsetRef.current;
-      const smoothed = prev + EMA_ALPHA * (offset - prev);
-      emaOffsetRef.current = smoothed;
-
-      // compute gaze from smoothed offset
-      const detectedGaze = computeGazeFromOffset(smoothed);
-
-      // only update/log on change (this will also update UI through state)
-      maybeLogGaze(detectedGaze);
-    } catch (err) {
-      // don't crash the whole loop if one frame errors
-      console.error("FaceMesh onResults error:", err);
-    } finally {
-      ctx.restore();
-    }
-  });
-
-  // Start camera (only once)
-  if (videoRef.current) {
-    camera = new Camera(videoRef.current, {
-      onFrame: async () => {
-        try {
-          await faceMesh.send({ image: videoRef.current });
-        } catch (err) {
-          // ignore transient errors from MediaPipe send
-          // but log rare ones to help debugging
-          // console.warn("faceMesh.send error:", err);
-        }
-      },
-      width: 640,   // increase resolution for more stable landmarks; can tune down if perf issues
-      height: 480,
+    let camera = null;
+    const faceMesh = new FaceMesh({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
     });
-    camera.start();
-  }
 
-  // Cleanup
-  return () => {
-    try {
-      if (camera) camera.stop();
-      // MediaPipe objects typically do not expose close in CDN builds,
-      // but if they do in your version call faceMesh.close() here.
-    } catch (err) {
-      console.warn("Error stopping camera/faceMesh:", err);
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+
+    function computeGazeFromOffset(smoothedOffset) {
+      if (smoothedOffset > LEFT_THRESHOLD) return "Left";
+      if (smoothedOffset < RIGHT_THRESHOLD) return "Right";
+      if (Math.abs(smoothedOffset) <= NEUTRAL_ZONE) return "Center";
+      return "Center";
     }
-  };
-}, [testId]); // note: uses saveCheatingLog and setGaze from closure (ensure stable or wrapped in refs)
 
+    function maybeLogGaze(newGaze) {
+      const now = Date.now();
 
-  // ------------------- Answer Handlers -------------------
+      if (newGaze !== lastGazeRef.current) {
+        // Calculate gaze duration when returning to center
+        if (
+          (lastGazeRef.current === "Left" || lastGazeRef.current === "Right") &&
+          newGaze === "Center" &&
+          gazeStartTimeRef.current
+        ) {
+          const durationSec = Math.floor(
+            (now - gazeStartTimeRef.current) / 1000
+          );
+          console.log(
+            `👁️ Gaze ${lastGazeRef.current} lasted ${durationSec} seconds`
+          );
+
+          saveCheatingLog(
+            "gaze_return_center",
+            `Looked ${lastGazeRef.current} for ${durationSec} sec`,
+            durationSec,
+            lastGazeRef.current
+          );
+          gazeStartTimeRef.current = null;
+        }
+
+        // Start new gaze timing
+        if (newGaze === "Left" || newGaze === "Right") {
+          gazeStartTimeRef.current = now;
+        }
+
+        lastGazeRef.current = newGaze;
+        setGaze(newGaze);
+      }
+
+      // Throttle excessive logs
+      if (now - lastLogTimeRef.current < LOG_COOLDOWN_MS) return;
+      lastLogTimeRef.current = now;
+    }
+
+    faceMesh.onResults((results) => {
+      try {
+        ctx.save();
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.drawImage(
+          results.image,
+          0,
+          0,
+          canvasRef.current.width,
+          canvasRef.current.height
+        );
+
+        if (
+          !results.multiFaceLandmarks ||
+          results.multiFaceLandmarks.length === 0
+        ) {
+          maybeLogGaze("Center");
+          ctx.restore();
+          return;
+        }
+
+        const landmarks = results.multiFaceLandmarks[0];
+        const leftEye = landmarks[33];
+        const rightEye = landmarks[263];
+        const noseTip = landmarks[1];
+
+        const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+        const offset = eyeCenterX - noseTip.x;
+        const prev = emaOffsetRef.current;
+        const smoothed = prev + EMA_ALPHA * (offset - prev);
+        emaOffsetRef.current = smoothed;
+
+        const detectedGaze = computeGazeFromOffset(smoothed);
+        maybeLogGaze(detectedGaze);
+      } catch (err) {
+        console.error("FaceMesh onResults error:", err);
+      } finally {
+        ctx.restore();
+      }
+    });
+
+    if (videoRef.current) {
+      camera = new Camera(videoRef.current, {
+        onFrame: async () => {
+          try {
+            await faceMesh.send({ image: videoRef.current });
+          } catch {}
+        },
+        width: 640,
+        height: 480,
+      });
+      camera.start();
+    }
+
+    return () => {
+      try {
+        if (camera) camera.stop();
+      } catch (err) {
+        console.warn("Error stopping camera/faceMesh:", err);
+      }
+    };
+  }, [testId]);
+
+  // --- Answer Handling ---
   const handleChange = (qId, value) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }));
   };
@@ -276,7 +315,6 @@ useEffect(() => {
     const student_id = localStorage.getItem("student_id");
 
     try {
-      // loop through all answers
       for (const [question_id, answer_text] of Object.entries(answers)) {
         const res = await addAnswer(
           testId,
@@ -284,11 +322,13 @@ useEffect(() => {
           student_id,
           answer_text
         );
-
         if (!res.success) {
           console.error(`Failed to save answer for question ${question_id}`);
         }
       }
+
+      const summaryRes = await submitTest(student_id, testId);
+      console.log("ML summary result:", summaryRes);
 
       alert("Test submitted successfully!");
     } catch (err) {
@@ -297,10 +337,9 @@ useEffect(() => {
     }
   };
 
-  // ------------------- UI -------------------
+  // --- UI ---
   return (
     <div className="container" style={{ position: "relative" }}>
-      {/* Questions Section */}
       <div className="test-box">
         {questions.map((q) => (
           <div key={q.id} className="question-box">
@@ -322,7 +361,7 @@ useEffect(() => {
         <Button txt={"Submit Test"} myFucntion={handleSubmit} />
       </div>
 
-      {/* Camera in top-right corner */}
+      {/* Camera feed in corner */}
       <div
         style={{
           position: "absolute",
@@ -336,7 +375,6 @@ useEffect(() => {
           background: "#000",
         }}
       >
-        {/* Hidden video feed */}
         <video
           ref={videoRef}
           autoPlay
@@ -349,15 +387,12 @@ useEffect(() => {
             position: "absolute",
           }}
         />
-
-        {/* Canvas feed */}
         <canvas
           ref={canvasRef}
           width={200}
           height={150}
           style={{ width: "100%", height: "100%" }}
         />
-
         <div
           style={{
             position: "absolute",
