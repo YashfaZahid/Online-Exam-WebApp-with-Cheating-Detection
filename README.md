@@ -23,7 +23,7 @@ ProctorEye is a web-based online examination system with cheating detection feat
 
 ## Tech Stack
 
-- **Frontend:** React, HTML, CSS, JavaScript
+- **Frontend:** React, HTML, CSS, JavaScript, React
 - **Backend:** Flask
 - **Authentication / Database:** Supabase
 - **Face Detection:** MediaPipe
