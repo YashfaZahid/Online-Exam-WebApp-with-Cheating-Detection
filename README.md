@@ -1,47 +1,61 @@
 # ProctorEye
 
-ProctorEye is a web-based online examination system with cheating detection features designed for both teachers and students. The platform allows teachers to create textual tests, while students can log in, view available tests, and take them in a monitored exam environment.
+ProctorEye is an online exam platform with a live proctoring layer. Teachers publish textual tests. Students take them in a monitored page that watches face presence, tab focus, and copy-paste.
 
-## Features
+## What it does
 
-### Teacher
-- Sign up and log in using Supabase authentication
-- Create textual questions/tests
+**Teachers**
+
+- Sign up and sign in
+- Create a test and add questions
 - Publish tests for students
 
-### Student
-- Sign up and log in using Supabase authentication
-- View available tests on the student dashboard
-- Attempt tests in a monitored exam interface
+**Students**
 
-### Proctoring / Cheating Detection
-- Face detection using MediaPipe
-- Live webcam preview during the exam
-- Copy-paste detection
-- Tab switching / tab attention detection
-- Suspicious activity monitoring during test attempts
+- Sign up, sign in, and open the tests assigned to them
+- Sit the exam with a webcam preview
 
-## Tech Stack
+**During the attempt**
 
-- **Frontend:** React, HTML, CSS, JavaScript, React
-- **Backend:** Flask
-- **Authentication / Database:** Supabase
-- **Face Detection:** MediaPipe
+- Face presence through MediaPipe Face Mesh and `react-webcam`
+- Tab-switch / attention signals
+- Copy-paste attempts
+- Those events are posted to `POST /cheating-log` and stored in Supabase
 
-## Project Overview
+Authentication and the exam tables live in Supabase. The Flask API is the write path for tests, questions, answers, logins, and the cheating log.
 
-ProctorEye is built to help conduct fair and secure online exams. Teachers can create tests and students can access them through their dashboard. During the exam, the system monitors face presence through the webcam and detects suspicious actions such as copy-paste attempts and tab switching.
+## Run
 
-## How It Works
+The UI calls the API at `http://127.0.0.1:5000`.
 
-1. Teacher signs up or logs in.
-2. Teacher creates a textual test.
-3. Student signs up or logs in.
-4. Student opens the dashboard and sees available tests.
-5. Student starts the exam.
-6. The system activates webcam monitoring using MediaPipe.
-7. The system tracks cheating-related behavior such as:
-   - Face detection
-   - Copy-paste actions
-   - Tab attention / tab switching
-8. Suspicious activity is recorded during the test.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Create `Backend/.env`:
+
+```text
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+```
+
+```bash
+# terminal 1
+cd Backend
+python app.py
+
+# terminal 2
+cd Frontend
+npm install
+npm run dev
+```
+
+## Stack
+
+React 19, Vite, Tailwind, Flask, Supabase, MediaPipe Face Mesh.
+
+## Limits
+
+Face presence is a signal, not proof of identity and not proof of cheating. Lighting, camera angle, and more than one person in frame will change what the mesh reports. Review the log before treating an attempt as misconduct.
